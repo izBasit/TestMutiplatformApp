@@ -1,0 +1,4 @@
+include ':app', ':sharedLib'
+rootProject.name='TestMutiplatformApp'
+
+enableFeaturePreview('GRADLE_METADATA')

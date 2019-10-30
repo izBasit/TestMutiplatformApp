@@ -1,0 +1,8 @@
+<component name="ArtifactManager">
+  <artifact type="jar" name="sharedLib-jvm">
+    <output-path>$PROJECT_DIR$/sharedLib/build/libs</output-path>
+    <root id="archive" name="sharedLib-jvm.jar">
+      <element id="module-output" name="sharedLib_jvmMain" />
+    </root>
+  </artifact>
+</component>
