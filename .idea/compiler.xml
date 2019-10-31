@@ -2,6 +2,8 @@
 <project version="4">
   <component name="CompilerConfiguration">
     <bytecodeTargetLevel>
+      <module name="core_androidMain" target="1.6" />
+      <module name="core_androidTest" target="1.6" />
       <module name="sharedLib_androidCompileMain" target="1.6" />
       <module name="sharedLib_androidCompileTest" target="1.6" />
       <module name="sharedLib_androidMain" target="1.6" />
