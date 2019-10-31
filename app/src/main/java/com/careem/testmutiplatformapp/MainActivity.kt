@@ -3,7 +3,7 @@ package com.careem.testmutiplatformapp
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.widget.TextView
-import com.careem.sharedlib.createAppScreenMessage
+import com.careem.core.createAppScreenMessage
 
 class MainActivity : AppCompatActivity() {
 

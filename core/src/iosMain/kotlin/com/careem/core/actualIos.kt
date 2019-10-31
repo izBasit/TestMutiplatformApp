@@ -1,4 +1,4 @@
-package com.careem.sharedlib
+package com.careem.core
 
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope

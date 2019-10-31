@@ -1,4 +1,4 @@
-package com.careem.sharedlib
+package com.careem.core
 
 expect fun platformName(): String
 
@@ -7,6 +7,6 @@ fun createAppScreenMessage(): String {
 }
 
 
-internal suspend fun helloCoroutine() {
+internal fun helloCoroutine() {
     println("Hello Coroutines!")
 }
