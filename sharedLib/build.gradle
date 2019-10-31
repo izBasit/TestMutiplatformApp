@@ -1,53 +1,19 @@
-plugins {
-    id 'com.android.library'
-    id 'org.jetbrains.kotlin.multiplatform'
-}
+apply plugin: 'kotlin-multiplatform'
+apply plugin: 'kotlinx-serialization'
 
 group = 'com.careem.sharedlib'
 version = 1.0
 
-android {
-    compileSdkVersion 27
-    defaultConfig {
-        minSdkVersion 15
-    }
-    buildTypes {
-        release {
-            minifyEnabled true
-            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-        }
-    }
-}
-
-dependencies {
-    // Specify Kotlin/JVM stdlib dependency.
-    implementation 'org.jetbrains.kotlin:kotlin-stdlib-jdk7'
-
-    testImplementation 'junit:junit:4.12'
-    testImplementation 'org.jetbrains.kotlin:kotlin-test'
-    testImplementation 'org.jetbrains.kotlin:kotlin-test-junit'
-
-    androidTestImplementation 'junit:junit:4.12'
-    androidTestImplementation 'org.jetbrains.kotlin:kotlin-test'
-    androidTestImplementation 'org.jetbrains.kotlin:kotlin-test-junit'
-
-    androidTestImplementation 'com.android.support.test:runner:1.0.2'
-    androidTestImplementation 'com.android.support.test.espresso:espresso-core:3.0.2'
-}
-
 kotlin {
     targets {
-        fromPreset(presets.android, 'androidLib')
+        fromPreset(presets.jvm, 'android')
 
-        def buildForDevice = project.findProperty("device")?.toBoolean() ?: false
-        def iosPreset = (buildForDevice) ? presets.iosArm64 : presets.iosX64
-        fromPreset(iosPreset, 'ios') {
+        final def iOSTarget = System.getenv('SDK_NAME')?.startsWith("iphoneos") ? presets.iosArm64 : presets.iosX64
+
+        fromPreset(iOSTarget, 'iOS') {
             binaries {
-                framework {
-                    // Disable bitcode embedding for the simulator build.
-                    if (!buildForDevice) {
-                        embedBitcode("disable")
-                    }
+                framework('Core') {
+                    freeCompilerArgs.add("-Xobjc-generics")
                 }
             }
         }
@@ -56,50 +22,89 @@ kotlin {
     sourceSets {
         commonMain {
             dependencies {
-                implementation 'org.jetbrains.kotlin:kotlin-stdlib-common'
-                implementation 'org.jetbrains.kotlin:kotlin-stdlib-common'
-                implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core-common:1.3.2'
+                implementation "org.jetbrains.kotlin:kotlin-stdlib-common"
+
+                implementation "org.jetbrains.kotlinx:kotlinx-serialization-runtime-common:$serialization_version"
+
+                // Coroutines
+                implementation "org.jetbrains.kotlinx:kotlinx-coroutines-core-common:$coroutines_version"
+
+                // HTTP
+                implementation "io.ktor:ktor-client-core:$ktor_version"
+                implementation "io.ktor:ktor-client-json:$ktor_version"
+                implementation "io.ktor:ktor-client-logging:$ktor_version"
+                implementation "io.ktor:ktor-client-serialization:$ktor_version"
+
+                // Reactive
+                implementation "com.badoo.reaktive:reaktive:$reactive_version"
             }
         }
-        commonTest {
+
+        androidMain {
             dependencies {
-                implementation 'org.jetbrains.kotlin:kotlin-test-common'
-                implementation 'org.jetbrains.kotlin:kotlin-test-annotations-common'
+                implementation "org.jetbrains.kotlin:kotlin-stdlib"
+
+                implementation "org.jetbrains.kotlinx:kotlinx-serialization-runtime:$serialization_version"
+
+                // Coroutines
+                implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:$coroutines_version"
+
+                // HTTP
+                implementation "io.ktor:ktor-client-android:$ktor_version"
+                implementation "io.ktor:ktor-client-core-jvm:$ktor_version"
+                implementation "io.ktor:ktor-client-json-jvm:$ktor_version"
+                implementation "io.ktor:ktor-client-logging-jvm:$ktor_version"
+                implementation "io.ktor:ktor-client-serialization-jvm:$ktor_version"
             }
         }
 
-        iosMain.dependencies {
-            implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core-native:1.1.1'
+        iOSMain {
+            dependencies {
+                implementation "org.jetbrains.kotlinx:kotlinx-serialization-runtime-native:$serialization_version"
+
+                // HTTP
+                implementation "io.ktor:ktor-client-ios:$ktor_version"
+                implementation "io.ktor:ktor-client-core-native:$ktor_version"
+                implementation "io.ktor:ktor-client-json-native:$ktor_version"
+                implementation "io.ktor:ktor-client-logging-native:$ktor_version"
+                implementation "io.ktor:ktor-client-serialization-native:$ktor_version"
+
+            }
+        }
+
+        all {
+            languageSettings {
+                progressiveMode = true
+                useExperimentalAnnotation('kotlin.Experimental')
+            }
         }
     }
 }
 
-task copyFramework {
-    def buildType = project.findProperty("kotlin.build.type") ?: "DEBUG"
-    dependsOn "link${buildType.toLowerCase().capitalize()}FrameworkIos"
+// workaround for https://youtrack.jetbrains.com/issue/KT-27170
+configurations {
+    compileClasspath
+}
+
+// Xcode-specific
+task packForXCode(type: Sync) {
+    final File frameworkDir = new File(buildDir, "xcode-frameworks")
+    final String mode = project.findProperty("XCODE_CONFIGURATION")?.toUpperCase() ?: 'DEBUG'
+    final def framework = kotlin.targets.iOS.binaries.getFramework("Core", mode)
+
+    inputs.property "mode", mode
+    dependsOn framework.linkTask
+
+    from { framework.outputFile.parentFile }
+    into frameworkDir
 
     doLast {
-        def srcFile = kotlin.targets.ios.binaries.getFramework(buildType).outputFile
-        def targetDir = getProperty("configuration.build.dir")
-        copy {
-            from srcFile.parent
-            into targetDir
-            include 'sharedlib.framework/**'
-            include 'sharedlib.framework.dSYM'
+        new File(frameworkDir, 'gradlew').with {
+            text = "#!/bin/bash\nexport 'JAVA_HOME=${System.getProperty("java.home")}'\ncd '${rootProject.rootDir}'\n./gradlew \$@\n"
+            setExecutable(true)
         }
     }
 }
-
-task iosTest {
-    def device = project.findProperty("iosDevice")?.toString() ?: "iPhone 8"
-    dependsOn 'linkDebugTestIos'
-    group = JavaBasePlugin.VERIFICATION_GROUP
-    description = "Runs tests for target 'ios' on an iOS simulator"
-
-    doLast {
-        def binary = kotlin.targets.ios.binaries.getTest('DEBUG').outputFile
-        exec {
-            commandLine 'xcrun', 'simctl', 'spawn', device, binary.absolutePath
-        }
-    }
+tasks.build.dependsOn packForXCode
+dependencies {
 }
